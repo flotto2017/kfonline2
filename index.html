@@ -451,27 +451,54 @@
             const [totalScore, setTotalScore] = useState(0);
             const inputRef = useRef(null);
 
-            const startRound = () => {
+            // --- 1. Init Round Data ---
+            const initRound = () => {
                 const { numbers, answer } = generateFlashSequence(settings.digits, settings.allowNegative, settings.count);
                 setSequence(numbers);
                 setAnswer(answer);
-                setPhase('flashing');
+                // Switch to round_countdown instead of flashing directly
+                setPhase('round_countdown'); 
                 setCurrentIndex(-1);
                 setInput('');
                 setShowNumber(false);
+            };
+
+            // --- 2. Effect triggers only on round change ---
+            useEffect(() => {
+                initRound();
+            }, [currentRound]);
+
+            // --- 3. Actual Flashing Logic (Called after countdown) ---
+            const startFlashing = () => {
+                setPhase('flashing');
                 let index = 0;
                 const interval = setInterval(() => {
-                    if (index >= numbers.length) { clearInterval(interval); setPhase('input'); return; }
+                    if (index >= sequence.length) { 
+                        clearInterval(interval); 
+                        setPhase('input'); 
+                        return; 
+                    }
+                    
                     setCurrentIndex(index);
                     setShowNumber(true);
                     playSound('flash');
+
                     const hideTime = Math.min(settings.speed / 2, 200); 
                     setTimeout(() => { setShowNumber(false); }, settings.speed - hideTime);
                     index++;
                 }, settings.speed);
             };
 
-            useEffect(() => { startRound(); }, [currentRound]);
+            // --- Key Listener for Next Round ---
+            useEffect(() => {
+                const handleKeyDown = (e) => {
+                    if (e.key === 'Enter' && phase === 'result' && inputMode === 'keyboard') {
+                        handleNextRound();
+                    }
+                };
+                window.addEventListener('keydown', handleKeyDown);
+                return () => window.removeEventListener('keydown', handleKeyDown);
+            }, [phase, inputMode, currentRound, settings.numQuestions]); // Add dependencies
 
             const handleSubmit = (e) => {
                 if(e) e.preventDefault();
@@ -499,60 +526,16 @@
             const spacingStyle = isCompact ? "mb-2" : "mb-8";
             const numberSize = isCompact ? "text-7xl h-32" : "text-9xl h-40";
 
-            if (phase === 'flashing') return (
-                <div className={`flex flex-col items-center min-h-screen bg-purple-50 p-4 ${containerStyle}`}>
-                    <div className="absolute top-4 right-4 text-purple-400 font-bold bg-white px-3 py-1 rounded-full shadow">ข้อที่ {currentRound} / {settings.numQuestions}</div>
-                    <div className={`text-gray-400 font-bold ${spacingStyle} text-xl`}>ตัวที่ {currentIndex + 1} / {settings.count}</div>
-                    <div className={`${numberSize} font-black text-purple-600 drop-shadow-lg flex items-center justify-center`}>
-                        {showNumber && sequence[currentIndex] !== undefined ? <span className="anim-pop">{sequence[currentIndex]}</span> : <span></span>}
-                    </div>
-                </div>
-            );
+            // Render Countdown for Every Round
+            if (phase === 'round_countdown') {
+                return <Countdown onComplete={startFlashing} playSound={playSound} />;
+            }
+
+            if (phase === 'flashing') return <div className={`flex flex-col items-center min-h-screen bg-purple-50 p-4 ${containerStyle}`}><div className="absolute top-4 right-4 text-purple-400 font-bold bg-white px-3 py-1 rounded-full shadow">ข้อที่ {currentRound} / {settings.numQuestions}</div><div className={`text-gray-400 font-bold ${spacingStyle} text-xl`}>ตัวที่ {currentIndex + 1} / {settings.count}</div><div className={`${numberSize} font-black text-purple-600 drop-shadow-lg flex items-center justify-center`}>{showNumber && sequence[currentIndex] !== undefined ? <span className="anim-pop">{sequence[currentIndex]}</span> : <span></span>}</div></div>;
             
-            if (phase === 'input') return (
-                <div className={`flex flex-col items-center min-h-screen bg-purple-50 px-4 ${isCompact ? 'pt-4 justify-start' : 'pt-8'}`}>
-                    <div className="absolute top-4 right-4 text-purple-400 font-bold bg-white px-3 py-1 rounded-full shadow">ข้อที่ {currentRound} / {settings.numQuestions}</div>
-                    <div className={`w-full max-w-lg text-center ${isCompact ? 'mt-4 mb-2' : 'mt-8 mb-8'}`}>
-                        <h2 className={`font-bold text-purple-600 animate-bounce ${isCompact ? 'text-2xl mb-1' : 'text-4xl mb-4'}`}>ตอบเท่าไหร่?</h2>
-                    </div>
-                    <div className={`${getPanelClass(screenMode)} mb-6 shadow-xl`}>
-                        {inputMode === 'numpad' ? 
-                            <div className={`w-full bg-gray-100 text-center font-bold p-4 rounded-xl border-2 border-purple-300 flex items-center justify-center ${isCompact ? 'text-3xl h-16' : 'text-4xl h-20'}`}>
-                                {input}<span className="animate-pulse text-gray-400 font-light text-3xl ml-1">|</span>
-                            </div> : 
-                            <form onSubmit={handleSubmit} className="w-full">
-                                <input ref={inputRef} type="number" pattern="[0-9]*" inputMode="numeric" value={input} onChange={(e) => setInput(e.target.value)} className={`w-full bg-gray-100 text-center font-bold p-4 rounded-xl border-2 border-purple-300 focus:bg-white outline-none ${isCompact ? 'text-3xl h-16' : 'text-4xl h-20'}`} placeholder="?" autoFocus />
-                                <button type="submit" className="hidden">Submit</button>
-                            </form>
-                        }
-                    </div>
-                    <div className="w-full max-w-lg grid grid-cols-3 gap-2 mt-auto">
-                        {[1, 2, 3, 4, 5, 6, 7, 8, 9, 'C', 0].map((num) => 
-                            <button key={num} onClick={() => handleNumpad(num)} className={`rounded-xl font-bold shadow-sm active:scale-95 transition ${num === 'C' ? 'bg-red-100 text-red-500' : 'bg-white text-gray-700 hover:bg-gray-50'} ${isCompact ? 'p-3 text-xl' : 'p-4 text-2xl'}`}>{num}</button>
-                        )}
-                        <button onClick={() => handleSubmit()} className={`rounded-xl font-bold shadow-sm active:scale-95 transition text-white bg-purple-500 ${isCompact ? 'p-3 text-xl' : 'p-4 text-2xl'}`}><i className="fa-solid fa-paper-plane"></i></button>
-                    </div>
-                </div>
-            );
+            if (phase === 'input') return <div className={`flex flex-col items-center min-h-screen bg-purple-50 px-4 ${isCompact ? 'pt-4 justify-start' : 'pt-8'}`}><div className="absolute top-4 right-4 text-purple-400 font-bold bg-white px-3 py-1 rounded-full shadow">ข้อที่ {currentRound} / {settings.numQuestions}</div><div className={`w-full max-w-lg text-center ${isCompact ? 'mt-4 mb-2' : 'mt-8 mb-8'}`}><h2 className={`font-bold text-purple-600 animate-bounce ${isCompact ? 'text-2xl mb-1' : 'text-4xl mb-4'}`}>ตอบเท่าไหร่?</h2></div><div className={`${getPanelClass(screenMode)} mb-6 shadow-xl`}>{inputMode === 'numpad' ? <div className={`w-full bg-gray-100 text-center font-bold p-4 rounded-xl border-2 border-purple-300 flex items-center justify-center ${isCompact ? 'text-3xl h-16' : 'text-4xl h-20'}`}>{input}<span className="animate-pulse text-gray-400 font-light text-3xl ml-1">|</span></div> : <form onSubmit={handleSubmit} className="w-full"><input ref={inputRef} type="number" pattern="[0-9]*" inputMode="numeric" value={input} onChange={(e) => setInput(e.target.value)} className={`w-full bg-gray-100 text-center font-bold p-4 rounded-xl border-2 border-purple-300 focus:bg-white outline-none ${isCompact ? 'text-3xl h-16' : 'text-4xl h-20'}`} placeholder="?" autoFocus /><button type="submit" className="hidden">Submit</button></form>}</div><div className="w-full max-w-lg grid grid-cols-3 gap-2 mt-auto">{[1, 2, 3, 4, 5, 6, 7, 8, 9, 'C', 0].map((num) => <button key={num} onClick={() => handleNumpad(num)} className={`rounded-xl font-bold shadow-sm active:scale-95 transition ${num === 'C' ? 'bg-red-100 text-red-500' : 'bg-white text-gray-700 hover:bg-gray-50'} ${isCompact ? 'p-3 text-xl' : 'p-4 text-2xl'}`}>{num}</button>)}<button onClick={() => handleSubmit()} className={`rounded-xl font-bold shadow-sm active:scale-95 transition text-white bg-purple-500 ${isCompact ? 'p-3 text-xl' : 'p-4 text-2xl'}`}><i className="fa-solid fa-paper-plane"></i></button></div></div>;
             
-            if (phase === 'result') return (
-                <div className="flex flex-col items-center justify-center min-h-screen p-4 anim-pop">
-                    <div className={`${getPanelClass(screenMode)} border-t-4 border-purple-500`}>
-                        <h2 className="text-3xl font-bold text-gray-800 mb-4">ผลลัพธ์ (ข้อ {currentRound})</h2>
-                        <div className="text-xl mb-6 font-bold text-purple-600">{resultMsg}</div>
-                        <div className="bg-gray-50 p-4 rounded-xl mb-6 text-sm text-gray-500 text-left max-h-40 overflow-y-auto custom-scroll">
-                            <div className="font-bold mb-2 text-center">โจทย์ที่แสดง:</div>
-                            <div className="flex flex-wrap gap-2 justify-center">
-                                {sequence.map((n, i) => <span key={i} className="bg-white px-2 py-1 rounded border shadow-sm">{n > 0 && i > 0 ? `+${n}` : n}</span>)}
-                            </div>
-                            <div className="mt-2 text-center font-bold text-lg">= {answer}</div>
-                        </div>
-                        <button onClick={handleNextRound} className="w-full bg-purple-500 hover:bg-purple-600 text-white font-bold py-3 px-6 rounded-2xl shadow-lg animate-pulse">
-                            {currentRound < settings.numQuestions ? 'ข้อต่อไป ▶' : 'ดูสรุปผล 📊'}
-                        </button>
-                    </div>
-                </div>
-            );
+            if (phase === 'result') return <div className="flex flex-col items-center justify-center min-h-screen p-4 anim-pop"><div className={`${getPanelClass(screenMode)} border-t-4 border-purple-500`}><h2 className="text-3xl font-bold text-gray-800 mb-4">ผลลัพธ์ (ข้อ {currentRound})</h2><div className="text-xl mb-6 font-bold text-purple-600">{resultMsg}</div><div className="bg-gray-50 p-4 rounded-xl mb-6 text-sm text-gray-500 text-left max-h-40 overflow-y-auto custom-scroll"><div className="font-bold mb-2 text-center">โจทย์ที่แสดง:</div><div className="flex flex-wrap gap-2 justify-center">{sequence.map((n, i) => <span key={i} className="bg-white px-2 py-1 rounded border shadow-sm">{n > 0 && i > 0 ? `+${n}` : n}</span>)}</div><div className="mt-2 text-center font-bold text-lg">= {answer}</div></div><button onClick={handleNextRound} className="w-full bg-purple-500 hover:bg-purple-600 text-white font-bold py-3 px-6 rounded-2xl shadow-lg animate-pulse">{currentRound < settings.numQuestions ? 'ข้อต่อไป ▶' : 'ดูสรุปผล 📊'}</button></div></div>;
             
             if (phase === 'summary') {
                 const percent = (totalScore / settings.numQuestions) * 100;
@@ -560,19 +543,7 @@
                 if (percent >= 80) feedbackText = "สุดยอดไปเลย! เทพเจ้าชัดๆ 🏆";
                 else if (percent >= 50) feedbackText = "เก่งมาก! ทำได้ดีแล้ว 👍";
                 else feedbackText = "ไม่เป็นไรนะ ฝึกฝนบ่อยๆ เดี๋ยวก็เก่ง! ✌️";
-                return (
-                    <div className="flex flex-col items-center justify-center min-h-screen p-4 anim-pop">
-                        <div className={`${getPanelClass(screenMode)} border-4 border-yellow-400`}>
-                            <div className="text-6xl mb-4 text-purple-500"><i className="fa-solid fa-star"></i></div>
-                            <h2 className="text-4xl font-bold text-gray-800 mb-2">สรุปคะแนน</h2>
-                            <div className="text-6xl font-black text-purple-600 mb-4">{totalScore} / {settings.numQuestions}</div>
-                            <div className="text-lg text-gray-600 mb-8 font-medium">{feedbackText}</div>
-                            <button onClick={onQuit} className="w-full bg-gray-200 hover:bg-gray-300 text-gray-700 font-bold py-3 px-6 rounded-2xl shadow-lg">
-                                <i className="fa-solid fa-home mr-2"></i> กลับหน้าหลัก
-                            </button>
-                        </div>
-                    </div>
-                );
+                return <div className="flex flex-col items-center justify-center min-h-screen p-4 anim-pop"><div className={`${getPanelClass(screenMode)} border-4 border-yellow-400`}><div className="text-6xl mb-4 text-purple-500"><i className="fa-solid fa-star"></i></div><h2 className="text-4xl font-bold text-gray-800 mb-2">สรุปคะแนน</h2><div className="text-6xl font-black text-purple-600 mb-4">{totalScore} / {settings.numQuestions}</div><div className="text-lg text-gray-600 mb-8 font-medium">{feedbackText}</div><button onClick={onQuit} className="w-full bg-gray-200 hover:bg-gray-300 text-gray-700 font-bold py-3 px-6 rounded-2xl shadow-lg"><i className="fa-solid fa-home mr-2"></i> กลับหน้าหลัก</button></div></div>;
             }
             return null;
         };
@@ -817,33 +788,7 @@
             const getThemeColors = () => { if (isBabyMode) return { text: 'text-pink-400', score: 'text-pink-500', btn: 'from-pink-400 to-rose-400', mainBtn: 'bg-pink-400 hover:bg-pink-500' }; if (isGodMult) return { text: 'text-orange-500', score: 'text-orange-600', btn: 'from-yellow-400 to-orange-500', mainBtn: 'bg-orange-500 hover:bg-orange-600' }; if (isGodDiv) return { text: 'text-teal-500', score: 'text-teal-600', btn: 'from-teal-400 to-cyan-500', mainBtn: 'bg-teal-500 hover:bg-teal-600' }; return { text: 'text-purple-500', score: 'text-blue-600', btn: 'from-pink-500 to-rose-500', mainBtn: 'bg-blue-500 hover:bg-blue-600' }; };
             const theme = getThemeColors();
             return (
-                <div className="flex flex-col items-center justify-center min-h-screen p-4 anim-pop">
-                    <div className={getPanelClass(screenMode)}>
-                        <div className={`text-6xl mb-4 ${theme.text}`}>
-                            <i className="fa-solid fa-flag-checkered"></i>
-                        </div>
-                        <h2 className="text-3xl font-bold text-gray-800 mb-2">จบเกม!</h2>
-                        {isBabyMode && <div className="text-pink-400 font-bold mb-2">Baby Mode</div>}
-                        {isGodMult && <div className="text-orange-500 font-bold mb-2 text-xl">GOD MULT {mode.replace('god_', '')}</div>}
-                        {isGodDiv && <div className="text-teal-500 font-bold mb-2 text-xl">GOD DIV {mode.replace('god_div_', '')}</div>}
-                        <div className="text-xl text-gray-600 mb-4">{resultMessage || "หมดเวลาแล้ว"}</div>
-                        {isNewHighScore && (
-                            <div className="mb-4 text-yellow-500 font-bold animate-bounce">
-                                <i className="fa-solid fa-star mr-1"></i> สถิติใหม่บนเครื่องนี้!
-                            </div>
-                        )}
-                        <div className="bg-gray-100 p-6 rounded-2xl mb-6">
-                            <div className="text-gray-500 text-sm uppercase font-bold">คะแนนของคุณ</div>
-                            <div className={`text-6xl font-extrabold ${theme.score}`}>{score}</div>
-                        </div>
-                        <button 
-                            onClick={() => { playSound('click'); onRestart(); }}
-                            className={`w-full text-white font-bold py-4 px-6 rounded-2xl shadow-lg transform transition hover:scale-105 ${theme.mainBtn}`}
-                        >
-                            เล่นอีกครั้ง
-                        </button>
-                    </div>
-                </div>
+                <div className="flex flex-col items-center justify-center min-h-screen p-4 anim-pop"><div className={getPanelClass(screenMode)}><div className={`text-6xl mb-4 ${theme.text}`}><i className="fa-solid fa-flag-checkered"></i></div><h2 className="text-3xl font-bold text-gray-800 mb-2">จบเกม!</h2>{isBabyMode && <div className="text-pink-400 font-bold mb-2">Baby Mode</div>}{isGodMult && <div className="text-orange-500 font-bold mb-2 text-xl">GOD MULT {mode.replace('god_', '')}</div>}{isGodDiv && <div className="text-teal-500 font-bold mb-2 text-xl">GOD DIV {mode.replace('god_div_', '')}</div>}<div className="text-xl text-gray-600 mb-4">{resultMessage || "หมดเวลาแล้ว"}</div>{isNewHighScore && <div className="mb-4 text-yellow-500 font-bold animate-bounce"><i className="fa-solid fa-star mr-1"></i> สถิติใหม่บนเครื่องนี้!</div>}<div className="bg-gray-100 p-6 rounded-2xl mb-6"><div className="text-gray-500 text-sm uppercase font-bold">คะแนนของคุณ</div><div className={`text-6xl font-extrabold ${theme.score}`}>{score}</div></div><button onClick={() => { playSound('click'); onRestart(); }} className={`w-full text-white font-bold py-4 px-6 rounded-2xl shadow-lg transform transition hover:scale-105 ${theme.mainBtn}`}>เล่นอีกครั้ง</button></div></div>
             );
         };
 
@@ -892,7 +837,7 @@
             };
 
             const startGameSingle = (mode = 'normal') => { setDifficulty(mode); setScore(0); setIsNewHighScore(false); setQuestion(generateQuestion(mode)); setGameState('countdown'); };
-            const handleStartFlashGame = (settings) => { setFlashSettings(settings); setGameState('countdown'); };
+            const handleStartFlashGame = (settings) => { setFlashSettings(settings); setGameState('god_flash_playing'); }; // Direct jump to component logic
             const handleCountdownFinish = () => { if (flashSettings) { setGameState('god_flash_playing'); } else { setGameState('playing_single'); } };
             
             const handleLogout = () => {

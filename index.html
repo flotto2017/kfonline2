@@ -93,7 +93,7 @@
     <script type="text/babel" data-presets="react,env">
         const { useState, useEffect, useRef, useCallback } = React;
         
-        // --- 🔒 การตั้งค่าสิทธิ์เข้าใช้งาน (Whitelist) ---
+        // --- 🔒 Whitelist ---
         const WHITELISTED_USERS = []; 
 
         // --- Firebase Configuration ---
@@ -168,6 +168,7 @@
             }
         };
 
+        // --- Helpers ---
         const generateQuestion = (mode = 'normal') => {
             if (mode === 'baby') {
                 const ops = ['+', '-'];
@@ -184,7 +185,6 @@
                 } while (answer >= 10);
                 return { a, b, op, answer, id: Date.now() };
             }
-
             if (mode === 'god_2x1') {
                 const a = Math.floor(Math.random() * 90) + 10;
                 const b = Math.floor(Math.random() * 8) + 2;
@@ -200,7 +200,6 @@
                 const b = Math.floor(Math.random() * 90) + 10;
                 return { a, b, op: '*', answer: a * b, id: Date.now() };
             }
-
             if (mode === 'god_div_3x1') {
                 const b = Math.floor(Math.random() * 8) + 2;
                 const minAns = Math.ceil(100 / b);
@@ -225,7 +224,6 @@
                 const a = ans * b;
                 return { a, b, op: '/', answer: ans, id: Date.now() };
             }
-
             const ops = ['+', '-', '*'];
             const op = ops[Math.floor(Math.random() * ops.length)];
             let a, b;
@@ -288,7 +286,6 @@
             );
         };
 
-        // --- Styles Helpers ---
         const getPanelClass = (screenMode) => {
             const base = "glass-panel text-center transition-all duration-300 ";
             switch (screenMode) {
@@ -358,12 +355,10 @@
                 setError('');
                 
                 if (username.trim()) {
-                    if (WHITELISTED_USERS.length > 0) {
-                        if (!WHITELISTED_USERS.includes(username.trim())) {
-                            playSound('wrong');
-                            setError('ขออภัย ชื่อนี้ไม่ได้รับอนุญาตให้เข้าเล่น');
-                            return;
-                        }
+                    if (WHITELISTED_USERS.length > 0 && !WHITELISTED_USERS.includes(username.trim())) {
+                        playSound('wrong');
+                        setError('ขออภัย ชื่อนี้ไม่ได้รับอนุญาตให้เข้าเล่น');
+                        return;
                     }
                     playSound('click'); 
                     onLogin(username.trim()); 
@@ -528,7 +523,7 @@
 
             useEffect(() => {
                 setLoading(true);
-                let modeDoc = 'normal'; // Default
+                let modeDoc = 'normal'; 
                 if (viewMode === 'baby') modeDoc = 'baby';
                 else if (viewMode === 'god_2x1') modeDoc = 'god_2x1';
                 else if (viewMode === 'god_3x1') modeDoc = 'god_3x1';
@@ -569,70 +564,17 @@
             return (
                 <div className="flex flex-col items-center justify-center min-h-screen p-4 anim-pop">
                     <div className={`${getPanelClass(screenMode)} h-[85vh] flex flex-col relative`}>
-                        {/* Header */}
                         <div className="mb-4 mt-2 relative shrink-0">
-                            <button onClick={() => { playSound('click'); onBack(); }} className="absolute left-0 top-1 text-gray-400 hover:text-gray-600 z-10">
-                                <i className="fa-solid fa-arrow-left fa-xl"></i>
-                            </button>
-                            <h2 className="text-3xl font-bold text-center text-yellow-500">
-                                <i className="fa-solid fa-trophy mr-2"></i>อันดับ
-                            </h2>
+                            <h2 className="text-3xl font-bold text-center text-yellow-500"><i className="fa-solid fa-trophy mr-2"></i>อันดับ</h2>
                         </div>
-
-                        {/* Body: Split View */}
                         <div className="flex flex-1 overflow-hidden gap-3">
-                            {/* Left: Vertical Menu */}
                             <div className="w-1/3 min-w-[100px] flex flex-col gap-2 overflow-y-auto custom-scroll pr-1 pb-2">
                                 {['normal', 'baby', 'god_2x1', 'god_3x1', 'god_2x2', 'god_div_3x1', 'god_div_4x1', 'god_div_4x2'].map(m => (
-                                    <button 
-                                        key={m} 
-                                        onClick={() => { playSound('click'); setViewMode(m); }} 
-                                        className={`px-3 py-3 rounded-xl text-sm font-bold transition text-left shadow-sm leading-tight
-                                            ${viewMode === m 
-                                                ? 'bg-blue-500 text-white ring-2 ring-blue-300' 
-                                                : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}
-                                    >
-                                        {getModeLabel(m)}
-                                    </button>
+                                    <button key={m} onClick={() => setViewMode(m)} className={`px-3 py-3 rounded-xl text-sm font-bold transition text-left shadow-sm leading-tight ${viewMode === m ? 'bg-blue-500 text-white ring-2 ring-blue-300' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}>{getModeLabel(m)}</button>
                                 ))}
                             </div>
-                            
-                            {/* Right: Table */}
                             <div className="flex-1 overflow-y-auto custom-scroll bg-gray-50 rounded-xl p-2 shadow-inner">
-                                {loading ? (
-                                    <div className="text-center text-gray-400 mt-10">
-                                        <i className="fa-solid fa-circle-notch fa-spin mb-2"></i><br/>กำลังโหลด...
-                                    </div>
-                                ) : scores.length === 0 ? (
-                                    <div className="text-center text-gray-400 mt-10">
-                                        ยังไม่มีคะแนน
-                                    </div>
-                                ) : (
-                                    <table className="w-full text-left border-collapse">
-                                        <thead className="sticky top-0 bg-gray-50 z-10">
-                                            <tr className="text-gray-400 text-xs border-b border-gray-200">
-                                                <th className="py-2 px-1 font-light">#</th>
-                                                <th className="py-2 px-1 font-light">ผู้เล่น</th>
-                                                <th className="py-2 px-1 font-light text-right">แต้ม</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {scores.map((s, index) => {
-                                                const isMe = currentUser && s.username === currentUser.displayName;
-                                                return (
-                                                    <tr key={index} className={`border-b border-gray-100 last:border-0 text-sm ${isMe ? 'bg-yellow-100 rounded' : ''}`}>
-                                                        <td className="py-2 px-1 font-bold text-gray-500">{index + 1}</td>
-                                                        <td className={`py-2 px-1 ${isMe ? 'text-blue-600' : 'text-gray-700'}`}>
-                                                            <div className="font-semibold truncate max-w-[100px]">{s.username}</div>
-                                                            <div className="text-[10px] text-gray-400 font-light">{formatTimestamp(s.timestamp)}</div>
-                                                        </td>
-                                                        <td className="py-2 px-1 text-right font-bold text-blue-500">{s.score}</td>
-                                                    </tr>
-                                                );
-                                            })}
-                                        </tbody>
-                                    </table>
-                                )}
+                                {loading ? <div className="text-center text-gray-400 mt-10"><i className="fa-solid fa-circle-notch fa-spin mb-2"></i><br/>กำลังโหลด...</div> : scores.length === 0 ? <div className="text-center text-gray-400 mt-10">ยังไม่มีคะแนน</div> : <table className="w-full text-left border-collapse"><thead className="sticky top-0 bg-gray-50 z-10"><tr className="text-gray-400 text-xs border-b border-gray-200"><th className="py-2 px-1 font-light">#</th><th className="py-2 px-1 font-light">ผู้เล่น</th><th className="py-2 px-1 font-light text-right">แต้ม</th></tr></thead><tbody>{scores.map((s, index) => {const isMe = currentUser && s.username === currentUser.displayName; return (<tr key={index} className={`border-b border-gray-100 last:border-0 text-sm ${isMe ? 'bg-yellow-100 rounded' : ''}`}><td className="py-2 px-1 font-bold text-gray-500">{index + 1}</td><td className={`py-2 px-1 ${isMe ? 'text-blue-600' : 'text-gray-700'}`}><div className="font-semibold truncate max-w-[100px]">{s.username}</div><div className="text-[10px] text-gray-400 font-light">{formatTimestamp(s.timestamp)}</div></td><td className="py-2 px-1 text-right font-bold text-blue-500">{s.score}</td></tr>);})}</tbody></table>}
                             </div>
                         </div>
                     </div>
@@ -668,103 +610,14 @@
             let modeLabel = ''; if (isBabyMode) modeLabel = 'BABY MODE'; if (mode === 'god_2x1') modeLabel = 'GOD MUL 2x1'; if (mode === 'god_3x1') modeLabel = 'GOD MUL 3x1'; if (mode === 'god_2x2') modeLabel = 'GOD MUL 2x2'; if (mode === 'god_div_3x1') modeLabel = 'GOD DIV 3/1'; if (mode === 'god_div_4x1') modeLabel = 'GOD DIV 4/1'; if (mode === 'god_div_4x2') modeLabel = 'GOD DIV 4/2';
             const getThemeColors = () => { if (isBabyMode) return { bg: 'bg-pink-50', text: 'text-pink-500', border: 'border-pink-400', ring: 'focus:border-pink-400', score: 'text-pink-500', btn: 'bg-pink-400' }; if (isGodMult) return { bg: 'bg-orange-50', text: 'text-orange-500', border: 'border-orange-500', ring: 'focus:border-orange-500', score: 'text-orange-600', btn: 'bg-orange-500' }; if (isGodDiv) return { bg: 'bg-teal-50', text: 'text-teal-500', border: 'border-teal-500', ring: 'focus:border-teal-500', score: 'text-teal-600', btn: 'bg-teal-500' }; return { bg: 'bg-blue-50', text: 'text-blue-500', border: 'border-blue-500', ring: 'focus:border-blue-500', score: 'text-blue-600', btn: 'bg-blue-500' }; };
             const theme = getThemeColors();
-
-            // Compact Mode Adjustments (Keyboard Friendly)
             const isCompact = screenMode === 1;
-            const containerStyle = isCompact ? `pt-2 justify-start h-[100dvh]` : `min-h-screen pt-8 justify-between`; // Use dvh for mobile fix
+            const containerStyle = isCompact ? `pt-2 justify-start h-[100dvh]` : `min-h-screen pt-8 justify-between`; 
             const headerStyle = isCompact ? "mb-2 scale-90" : "mb-8";
             const panelStyle = isCompact ? "mb-2 py-4" : "mb-6 py-8";
-            const fontScale = isCompact ? "scale-90 origin-top" : ""; // Scale down question slightly
+            const fontScale = isCompact ? "scale-90 origin-top" : ""; 
             const numpadStyle = isCompact ? "mt-2" : "mt-auto";
-
             return (
-                <div className={`flex flex-col items-center px-4 transition-colors duration-500 ${theme.bg} ${feedback === 'correct' ? 'bg-green-100' : feedback === 'wrong' ? 'bg-red-100' : ''} ${containerStyle}`}>
-                    
-                    {/* Header */}
-                    <div className={`w-full max-w-lg flex justify-between items-center ${headerStyle} transition-all`}>
-                        <div className="w-10"></div>
-                        <div className="bg-white px-6 py-2 rounded-full shadow-sm flex items-center gap-2">
-                             {modeLabel && <span className={`text-sm font-bold ${theme.text}`}>{modeLabel}</span>}
-                            <Timer duration={60} onTimeUp={timeUp} active={true} />
-                        </div>
-                        <button onClick={() => { playSound('click'); onQuit(); }} className="w-10 h-10 rounded-full bg-white shadow text-gray-500 hover:text-red-500">
-                            <i className="fa-solid fa-times"></i>
-                        </button>
-                    </div>
-
-                    {/* Score - Hide in compact mode if keyboard is up? No, keep it small */}
-                    {!isCompact && (
-                        <div className="w-full max-w-lg flex justify-center mb-8">
-                            <div className={`bg-white p-4 rounded-2xl shadow-sm border-l-4 flex flex-col items-center w-32 ${theme.border} ${feedback === 'correct' ? 'scale-110 transition-transform' : ''}`}>
-                                <span className="text-gray-400 text-xs uppercase font-bold">คะแนน</span>
-                                <span className={`text-4xl font-bold ${theme.score}`}>{score}</span>
-                            </div>
-                        </div>
-                    )}
-                    {isCompact && (
-                         <div className={`absolute top-16 right-4 bg-white p-2 rounded-xl shadow-sm border-l-4 flex flex-col items-center w-20 ${theme.border} z-40`}>
-                            <span className="text-gray-400 text-[10px] uppercase font-bold">คะแนน</span>
-                            <span className={`text-2xl font-bold ${theme.score}`}>{score}</span>
-                        </div>
-                    )}
-
-                    {/* Question Panel */}
-                    <div className={`${getPanelClass(screenMode)} ${panelStyle} shadow-xl relative overflow-hidden transition-transform ${feedback === 'wrong' ? 'shake bg-red-50' : ''}`}>
-                        {feedback === 'correct' && <div className="absolute inset-0 flex items-center justify-center bg-green-100 bg-opacity-90 z-10 text-green-600 text-6xl font-bold anim-pop"><i className="fa-solid fa-check"></i></div>}
-                        
-                        <div className={`transition-transform ${fontScale}`}>
-                            <div className="text-gray-400 text-sm mb-2">โจทย์ข้อที่ {score + 1}</div>
-                            <div className="text-6xl font-bold text-gray-800 mb-8 flex justify-center gap-4">
-                                <span>{question.a}</span>
-                                <span className={theme.text}>{question.op === '*' ? '×' : question.op === '/' ? '÷' : question.op}</span>
-                                <span>{question.b}</span>
-                                <span className="text-gray-300">=</span>
-                                <span className={theme.score}>?</span>
-                            </div>
-                        </div>
-
-                        {/* Input Area */}
-                        {inputMode === 'numpad' ? (
-                            <div className={`w-full bg-gray-100 text-center text-4xl font-bold p-4 rounded-xl border-2 border-transparent transition shadow-inner flex items-center justify-center ${isCompact ? 'h-16' : 'h-20'} ${theme.ring}`}>
-                                {input}<span className="animate-pulse text-gray-400 font-light text-3xl ml-1">|</span>
-                            </div>
-                        ) : (
-                            <form onSubmit={handleSubmit} className="w-full">
-                                <input 
-                                    ref={inputRef} 
-                                    type="number" 
-                                    pattern="[0-9]*" 
-                                    inputMode="numeric" 
-                                    value={input} 
-                                    onChange={(e) => setInput(e.target.value)} 
-                                    className={`w-full bg-gray-100 text-center text-4xl font-bold p-4 rounded-xl border-2 border-transparent focus:bg-white outline-none transition shadow-inner ${isCompact ? 'h-16' : 'h-20'} ${theme.ring}`} 
-                                    placeholder="?" 
-                                    autoFocus 
-                                />
-                                <button type="submit" className="hidden">Submit</button>
-                            </form>
-                        )}
-                    </div>
-
-                    {/* Numpad - Hide if compact AND keyboard mode is active? User might still want numpad in compact. Keep it. */}
-                    <div className={`w-full max-w-lg grid grid-cols-3 gap-2 ${numpadStyle} pb-4`}>
-                        {[1, 2, 3, 4, 5, 6, 7, 8, 9, 'C', 0].map((num) => (
-                            <button 
-                                key={num} 
-                                onClick={() => handleNumpad(num)} 
-                                className={`rounded-xl font-bold shadow-sm active:scale-95 transition ${num === 'C' ? 'bg-red-100 text-red-500' : 'bg-white text-gray-700 hover:bg-gray-50'} ${isCompact ? 'p-3 text-xl' : 'p-4 text-2xl'}`}
-                            >
-                                {num}
-                            </button>
-                        ))}
-                        <button 
-                            onClick={() => handleSubmit()} 
-                            className={`rounded-xl font-bold shadow-sm active:scale-95 transition text-white ${theme.btn} ${isCompact ? 'p-3 text-xl' : 'p-4 text-2xl'}`}
-                        >
-                            <i className="fa-solid fa-paper-plane"></i>
-                        </button>
-                    </div>
-                </div>
+                <div className={`flex flex-col items-center px-4 transition-colors duration-500 ${theme.bg} ${feedback === 'correct' ? 'bg-green-100' : feedback === 'wrong' ? 'bg-red-100' : ''} ${containerStyle}`}><div className={`w-full max-w-lg flex justify-between items-center ${headerStyle} transition-all`}><div className="w-10"></div><div className="bg-white px-6 py-2 rounded-full shadow-sm flex items-center gap-2">{modeLabel && <span className={`text-sm font-bold ${theme.text}`}>{modeLabel}</span>}<Timer duration={60} onTimeUp={timeUp} active={true} /></div><button onClick={() => { playSound('click'); onQuit(); }} className="w-10 h-10 rounded-full bg-white shadow text-gray-500 hover:text-red-500"><i className="fa-solid fa-times"></i></button></div>{!isCompact && <div className="w-full max-w-lg flex justify-center mb-8"><div className={`bg-white p-4 rounded-2xl shadow-sm border-l-4 flex flex-col items-center w-32 ${theme.border} ${feedback === 'correct' ? 'scale-110 transition-transform' : ''}`}><span className="text-gray-400 text-xs uppercase font-bold">คะแนน</span><span className={`text-4xl font-bold ${theme.score}`}>{score}</span></div></div>}{isCompact && <div className={`absolute top-16 right-4 bg-white p-2 rounded-xl shadow-sm border-l-4 flex flex-col items-center w-20 ${theme.border} z-40`}><span className="text-gray-400 text-[10px] uppercase font-bold">คะแนน</span><span className={`text-2xl font-bold ${theme.score}`}>{score}</span></div>}<div className={`${getPanelClass(screenMode)} ${panelStyle} shadow-xl relative overflow-hidden transition-transform ${feedback === 'wrong' ? 'shake bg-red-50' : ''}`}>{feedback === 'correct' && <div className="absolute inset-0 flex items-center justify-center bg-green-100 bg-opacity-90 z-10 text-green-600 text-6xl font-bold anim-pop"><i className="fa-solid fa-check"></i></div>}<div className={`transition-transform ${fontScale}`}><div className="text-gray-400 text-sm mb-2">โจทย์ข้อที่ {score + 1}</div><div className="text-6xl font-bold text-gray-800 mb-8 flex justify-center gap-4"><span>{question.a}</span><span className={theme.text}>{question.op === '*' ? '×' : question.op === '/' ? '÷' : question.op}</span><span>{question.b}</span><span className="text-gray-300">=</span><span className={theme.score}>?</span></div></div>{inputMode === 'numpad' ? <div className={`w-full bg-gray-100 text-center text-4xl font-bold p-4 rounded-xl border-2 border-transparent transition shadow-inner flex items-center justify-center ${isCompact ? 'h-16' : 'h-20'} ${theme.ring}`}>{input}<span className="animate-pulse text-gray-400 font-light text-3xl ml-1">|</span></div> : <form onSubmit={handleSubmit} className="w-full"><input ref={inputRef} type="number" pattern="[0-9]*" inputMode="numeric" value={input} onChange={(e) => setInput(e.target.value)} className={`w-full bg-gray-100 text-center text-4xl font-bold p-4 rounded-xl border-2 border-transparent focus:bg-white outline-none transition shadow-inner ${isCompact ? 'h-16' : 'h-20'} ${theme.ring}`} placeholder="?" autoFocus /><button type="submit" className="hidden">Submit</button></form>}</div><div className={`w-full max-w-lg grid grid-cols-3 gap-2 ${numpadStyle} pb-4`}>{[1, 2, 3, 4, 5, 6, 7, 8, 9, 'C', 0].map((num) => <button key={num} onClick={() => handleNumpad(num)} className={`rounded-xl font-bold shadow-sm active:scale-95 transition ${num === 'C' ? 'bg-red-100 text-red-500' : 'bg-white text-gray-700 hover:bg-gray-50'} ${isCompact ? 'p-3 text-xl' : 'p-4 text-2xl'}`}>{num}</button>)}<button onClick={() => handleSubmit()} className={`rounded-xl font-bold shadow-sm active:scale-95 transition text-white ${theme.btn} ${isCompact ? 'p-3 text-xl' : 'p-4 text-2xl'}`}><i className="fa-solid fa-paper-plane"></i></button></div></div>
             );
         };
 

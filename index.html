@@ -566,7 +566,7 @@
                 
                 const unsubscribe = db.collection('modes').doc(modeDoc).collection('scores')
                     .orderBy('score', 'desc')
-                    .limit(20)
+                    .limit(200)
                     .onSnapshot((snapshot) => {
                         const loadedScores = snapshot.docs.map(doc => ({id: doc.id, ...doc.data()}));
                         setScores(loadedScores);
@@ -919,3 +919,4 @@
     </script>
 </body>
 </html>
+
